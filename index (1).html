@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <title>CodeChrono – Time-Based Code Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css"/>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #0f0f0f;
+      color: #e5e5e5;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      margin: auto;
+      padding: 20px;
+      background-color: #1a1a1a;
+      border: 1px solid #7c3aed;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+    }
+
+    h2 {
+      text-align: center;
+      color: #c084fc;
+      margin-bottom: 20px;
+      font-size: 1.8rem;
+    }
+
+    #editor {
+      height: 45vh;
+      min-height: 300px;
+      border: 1px solid #ccc;
+    }
+
+    #controls {
+      margin-top: 15px;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 16px;
+      background-color: #7c3aed;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #6d28d9;
+    }
+
+    #message {
+      margin-top: 10px;
+      color: #22c55e;
+      text-align: center;
+    }
+
+    #timelineContainer {
+      margin-top: 30px;
+    }
+
+    #timeline {
+      position: relative;
+      height: 8px;
+      background-color: #374151;
+      border-radius: 5px;
+    }
+
+    .point {
+      position: absolute;
+      top: 0;
+      transform: translate(-50%, -25%);
+      cursor: pointer;
+    }
+
+    .point.active {
+      width: 16px;
+      height: 16px;
+      background-color: #c084fc;
+      border-radius: 50%;
+    }
+
+    .point.inactive {
+      width: 12px;
+      height: 12px;
+      background-color: #6b7280;
+      border-radius: 50%;
+    }
+
+    @media (max-width: 600px) {
+      h2 {
+        font-size: 1.4rem;
+      }
+
+      button {
+        font-size: 0.9rem;
+        padding: 8px 12px;
+      }
+
+      #editor {
+        height: 40vh;
+      }
+    }
+
+    /* إجبار CodeMirror يتمدد 100% داخل #editor */
+    .CodeMirror {
+      height: 100% !important;
+      width: 100%;
+      font-size: 16px;
+      background-color: transparent;
+      color: #f8f8f2;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🌌 CodeChrono – Time-Based Code Editor</h2>
+    <div id="editor"></div>
+
+    <div id="controls">
+      <button id="undoBtn">⏪ Undo</button>
+      <button id="redoBtn">⏩ Redo</button>
+    </div>
+
+    <div id="message">Ready...</div>
+
+    <div id="timelineContainer">
+      <div id="timeline"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+
+  <script>
+    const editor = CodeMirror(document.getElementById('editor'), {
+      mode: "javascript",
+      lineNumbers: true,
+      theme: "dracula",
+      value: "// Start writing your code here..."
+    });
+
+    const history = [editor.getValue()];
+    let currentStep = 0;
+
+    const saveState = () => {
+      const val = editor.getValue();
+      if (val !== history[currentStep]) {
+        history.splice(currentStep + 1);
+        history.push(val);
+        currentStep++;
+        document.getElementById('message').textContent =
+          `Saved – Step ${currentStep + 1} of ${history.length}`;
+        renderTimeline();
+      }
+    };
+
+    editor.on('changes', () => {
+      saveState();
+    });
+
+    document.getElementById('undoBtn').onclick = () => {
+      if (currentStep > 0) {
+        currentStep--;
+        editor.setValue(history[currentStep]);
+        document.getElementById('message').textContent =
+          `Reverted to Step ${currentStep + 1}`;
+        renderTimeline();
+      }
+    };
+
+    document.getElementById('redoBtn').onclick = () => {
+      if (currentStep < history.length - 1) {
+        currentStep++;
+        editor.setValue(history[currentStep]);
+        document.getElementById('message').textContent =
+          `Advanced to Step ${currentStep + 1}`;
+        renderTimeline();
+      }
+    };
+
+    function renderTimeline() {
+      const container = document.getElementById('timeline');
+      container.innerHTML = '';
+      const total = history.length;
+
+      history.forEach((_, idx) => {
+        const point = document.createElement('div');
+        const leftPercent = total > 1 ? (idx / (total - 1)) * 100 : 0;
+        point.title = `Step ${idx + 1}`;
+        point.className = `point ${idx === currentStep ? 'active' : 'inactive'}`;
+        point.style.left = `${leftPercent}%`;
+        point.onclick = () => {
+          currentStep = idx;
+          editor.setValue(history[currentStep]);
+          document.getElementById('message').textContent = `Jumped to Step ${currentStep + 1}`;
+          renderTimeline();
+        };
+        container.appendChild(point);
+      });
+    }
+
+    renderTimeline();
+  </script>
+</body>
+</html>
